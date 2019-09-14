@@ -1,0 +1,4 @@
+.RData
+.RHistory
+*.csv
+*.csv.bz2
