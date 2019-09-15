@@ -26,91 +26,12 @@ The documentation provided with the data describes 48 different event types. How
 
 There were several variations of each event type due to incorrect spelling, variations of the same name etc.  
 
-### Processing the data to determine how Population Health is affected by the events
-The FATALITIES and INJURIES columns can be best used to show how the various events affect population health.
-
-A vector with the 48 event types described in the documentation was created.  The original data was then filtered to obtain those rows with event types not included in this vector. The proportions of FATALITIES and INJURIES attributed to these event types were then calculated.
-
-```{r}
-        event_types <- c("ASTRONOMICAL LOW TIDE", "AVALANCHE", "BLIZZARD", "COASTAL FLOOD", "COLD/WIND CHILL", "DEBRIS FLOW", "DENSE FOG", "DENSE SMOKE", "DROUGHT", "DUST DEVIL", "DUST STORM", "EXCESSIVE HEAT", "EXTREME COLD/WIND CHILL", "FLASH FLOOD", "FLOOD", "FREEZING FOG", "FROST/FREEZE", "FUNNEL CLOUD", "HAIL", "HEAT", "HEAVY RAIN", "HEAVY SNOW", "HIGH SURF", "HIGH WIND", "HURRICANE/TYPHOON", "ICE STORM", "LAKESHORE FLOOD", "LAKE-EFFECT SNOW", "LIGHTNING", "MARINE HAIL", "MARINE HIGH WIND", "MARINE STRONG WIND", "MARINE THUNDERSTORM WIND", "RIP CURRENT", "SEICHE", "SLEET", "STORM TIDE", "STRONG WIND", "THUNDERSTORM WIND", "TORNADO", "TROPICAL DEPRESSION", "TROPICAL STORM", "TSUNAMI", "VOLCANIC ASH", "WATERSPOUT", "WILDFIRE", "WINTER STORM", "WINTER WEATHER")        
-
-        diffEvents <- filter(stormdata, !(EVTYPE %in% event_types))
-        
-        sum(diffEvents$FATALITIES)/sum(stormdata$FATALITIES)
-        sum(diffEvents$INJURIES)/sum(stormdata$INJURIES)
-
-```
-
-About 13% of fatalities and 9% of injuries can be attributed to events with names not in the documentation.  These amounts are large enough to justify replacing some of these names with the documented names.  Only the names of those events with numbers of fatalities or injuries greater than 20 were replaced.
-
-```{r}
-        storm_i <- filter(stormdata, INJURIES != 0)
-
-        isum <- storm_i %>%
-                group_by(EVTYPE) %>%
-                summarise (inj_sum = sum(INJURIES)) %>%
-                arrange(desc(inj_sum))
-        
-        morethan20_i <- filter(isum, !(EVTYPE %in% event_types) & inj_sum >20)
-        
-        unique(morethan20_i$EVTYPE)
-```
-
-Similar code was used to to check the fatalities.
-```{r}
-        storm_f <- filter(stormdata, FATALITIES != 0)
-
-        fsum <- storm_f %>%
-                group_by(EVTYPE) %>%
-                summarise (fat_sum = sum(FATALITIES)) %>%
-                arrange(desc(fat_sum))
-        
-        morethan20_f <- filter(fsum, !(EVTYPE %in% event_types) & fat_sum >20)
-        
-        unique(morethan20_f$EVTYPE)
-```
-
-The second list is more or less a subset of the first so, as a result, 39 events were renamed based on guidance from the documentation on how each event was measured as well as the examples on what each event may include.  Note that there are a couple of events in lower case.  These will be converted to upper case before editing.
+The FATALITIES and INJURIES columns are required to show how the various weather events affect population health.
 
 
-### Processing the data to determine economic consequence of events
-The following variables can be used to determine how each event affects the economy:
-* PROPDMG - figure representing an estimate of the damage
-* PROPDMGEXP - an alpha character that signifies the magnitude of the amount of the figure in PROPDMG, ie.
-        + H - hundreds
-        + K - thousands
-        + M - millions
-        + B - billions
-* CROPDMG - figure representing an estimate of the damage
-* CROPDMGEXP - same as for PROPDMGEXP
-
-The values of the PROPDMGEXP were checked for validity.
-
-```{r}
-       # table(sd_edited$PROPDMGEXP)
-        #table(sd_edited$CROPDMGEXP)
-        
-        # to check what the property damage data looks like
-                propdata <- sd_edited %>%
-                        group_by(PROPDMGEXP) %>%
-                        summarise (prop_sum = sum(PROPDMG)) %>%
-                        arrange(desc(prop_sum))
-```
-Some of the PROPDMGEXP values are invalid, however, these rows contribute only a small amount to the total dollar value and can be left out.
-
-A similar exercise was done for the CROPDMGEXP variable.
-
-```{r}
-       # To check what the crop damage data looks like
-                cropdata <- sd_edited %>%
-                        group_by(CROPDMGEXP) %>%
-                        summarise (crop_sum = sum(CROPDMG)) %>%
-                        arrange(desc(crop_sum))
-```
-Again just a few rows have invalid data in the CROPDMGEXP column and can be left out.
 
 ### Replacing event names
-
+The second list is more or less a subset of the first so, as a result, 39 events were renamed based on guidance from the documentation on how each event was measured as well as the examples on what each event may include.  Note that there are a couple of events in lower case.  These will be converted to upper case before editing.
 Events replaced. A copy of the original data set was created for processing.
 
 ```{r}
@@ -150,11 +71,111 @@ Events replaced. A copy of the original data set was created for processing.
                 sd_edited$EVTYPE <- gsub("TROPICAL STORM GORDON", "TROPICAL STORM", sd_edited$EVTYPE)
                 sd_edited$EVTYPE <- gsub("WATERSPOUT/TORNADO", "WATERSPOUT", sd_edited$EVTYPE)
                 
-                # select relevant columns to show how event type affects population health
-                        popHealth <- select(sd_edited, EVTYPE, FATALITIES, INJURIES)
 ```
 
-## Select data for plots
+## Question 1: Across the United States, which types of events are most harmful with respect to population health?
+
+The edited database, **sd_edited**, was used to create a plot showing the events harmful to the population.  The FATALITIES and INJURIES variables were used.
+
+### Plot Injuries against event type
+
+```{r}
+        # Group by Event type, sum injuries for each event and arrange in descending order
+                inj_ordered <- sd_edited %>%
+                        group_by(EVTYPE) %>%
+                        summarise (inj_sum = sum(INJURIES)) %>%
+                        arrange(desc(inj_sum))
+        
+        # Take the top 10 events
+                inj_plotdata <- head(inj_ordered, 10)
+        
+        # Make EVTYPE an ordered factor so that ggplot does not re-order it
+                inj_plotdata$EVTYPE <- factor(inj_plotdata$EVTYPE, levels = inj_plotdata$EVTYPE)
+
+        # Plot injuries
+                library(ggplot2)
+                injPlot <- ggplot(inj_plotdata, aes(EVTYPE, inj_sum)) +
+                        geom_bar(stat = "identity", fill = "#a3b6d6") +
+                        xlab("Type of Weather Event") +
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+                        ylab("Number of Injuries") +
+                        ggtitle("")
+```
+
+### Plot Fatalities against event type
+
+```{r}
+        # Group by Event type, sum fatalities for each event and arrange in descending order
+                fat_ordered <- sd_edited %>%
+                        group_by(EVTYPE) %>%
+                        summarise (fat_sum = sum(FATALITIES)) %>%
+                        arrange(desc(fat_sum))
+        
+        # Take the top 10 events
+                fat_plotdata <- head(fat_ordered, 10)
+        
+        # Make EVTYPE an ordered factor so that ggplot does not re-order it
+                fat_plotdata$EVTYPE <- factor(fat_plotdata$EVTYPE, levels = fat_plotdata$EVTYPE)
+
+        # Plot fatalities
+                fatPlot <- ggplot(fat_plotdata, aes(EVTYPE, fat_sum)) +
+                        geom_bar(stat = "identity", fill = "#a3b6d6") +
+                        scale_y_continuous(name = "No. of Fatalities", breaks=seq(0, 1e+5, 1e+4)) +
+                        xlab("Type of Weather Event") +
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+                        #ylab("Number of Fatalities") +
+                        ggtitle("")
+```
+
+### Arrange both plots in one panel
+
+```{r}
+        library(gridExtra)
+        grid.arrange(injPlot, fatPlot)
+
+```
+
+
+## Question 2: Across the United States, which types of events have the greatest economic consequences?
+
+The following variables can be used to determine how each event affects the economy:
+* PROPDMG - contains figure representing estimates of the damage done to property
+* PROPDMGEXP - an alpha character that signifies the magnitude of the amount of the figure in PROPDMG, ie.
+        + H - hundreds
+        + K - thousands
+        + M - millions
+        + B - billions
+* CROPDMG - contains figure representing estimates of the damage done to crops
+* CROPDMGEXP - an alpha character that signifies the magnitude of the amount of the figure in CROPDMG.  The values are the same as for PROPDMGEXP.
+
+The values of the PROPDMGEXP were checked for validity.
+
+```{r}
+       # table(sd_edited$PROPDMGEXP)
+        #table(sd_edited$CROPDMGEXP)
+        
+        # to check what the property damage data looks like
+                propdata <- sd_edited %>%
+                        group_by(PROPDMGEXP) %>%
+                        summarise (prop_sum = sum(PROPDMG)) %>%
+                        arrange(desc(prop_sum))
+```
+Some of the PROPDMGEXP values seem invalid.  These include digits "0" to "8", "-", "?", "+". There is nothing in the documentation to indicate what these characters mean so unfortunately for the purposes of this exercise they have to be ignored.  
+
+A similar exercise was done for the CROPDMGEXP variable.
+
+```{r}
+       # To check what the crop damage data looks like
+                cropdata <- sd_edited %>%
+                        group_by(CROPDMGEXP) %>%
+                        summarise (crop_sum = sum(CROPDMG)) %>%
+                        arrange(desc(crop_sum))
+```
+
+Similarly, as with PROPDMGEXP, the seemingly invalid characters will have to be ignored.
+
+
+## Select data for plot
 The columns and rows to be used for the analysis were selected.
 
 ```{r}
@@ -164,11 +185,9 @@ The columns and rows to be used for the analysis were selected.
         # Filter required rows 
                 prop <- filter(econtmp, PROPDMGEXP %in% c("B", "b", "M", "m", "K", "k"))
                 crop <- filter(econtmp, CROPDMGEXP %in% c("B", "b", "M", "m", "K", "k"))
-                #econ <- filter(econtmp, (PROPDMGEXP %in% c("B", "b", "M", "m", "K", "k")) 
-                                #| (CROPDMGEXP %in% c("B", "b", "M", "m", "K", "k")))                
 ```
 
-The characters in PROPDMGEXP and CROPDMGEXP were replaced with the corresponding numeric values so that the dollar values of the damages can be calculated.
+The characters "K", "M" and "B" ,in PROPDMGEXP and CROPDMGEXP, were replaced with the corresponding numeric values so that the dollar values of the damages can be calculated.
 
 ```{r}
         prop$PROPDMGEXP <- gsub("K", 1000, prop$PROPDMGEXP, ignore.case = TRUE)
@@ -186,11 +205,9 @@ The characters in PROPDMGEXP and CROPDMGEXP were replaced with the corresponding
         crop <- mutate(crop, cropDamages = CROPDMG * CROPDMGEXP)
 ```
 
-Data was then grouped by EVTYPE and ordered by the sum of the damages for each event type.
+The data was then grouped by EVTYPE and ordered by the sum of the damages for each event type.
 
 ```{r}
-        #MAY NOT NEED TO DO THIS IF ALL REPLACEMENTS HAPPEN ABOVE
-        
         propOrdered <- prop %>%
                         group_by(EVTYPE) %>%
                         summarise (p_sum = sum(propDamages)) %>%
@@ -201,59 +218,6 @@ Data was then grouped by EVTYPE and ordered by the sum of the damages for each e
                         summarise (c_sum = sum(cropDamages)) %>%
                         arrange(desc(c_sum))
 ```
-
-### Replacing event names
-
-Events replaced. A copy of the original data set was created for processing.
-
-```{r}
-        sd_edited <- stormdata
-        
-        # Ensure all values in the EVTYPE variable are in upper case
-                sd_edited$EVTYPE <- toupper(sd_edited$EVTYPE)
-        
-        # Begin substitutions
-                #consider using sd_edited[grep("whatever", ed_edited$EVTYPE)] <- "correct name"
-                
-                # fix sd_edited$EVTYPE <- gsub("COLD", "COLD/WIND CHILL", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("LANDSLIDE", "DEBRIS FLOW", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("HEAT WAVE|^EXTREME HEAT|^RECORD HEAT", "EXCESSIVE HEAT", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("^EXTREME COLD", "EXTREME COLD/WIND CHILL", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("ICY ROADS|BLACK ICE", "FROST/FREEZE", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("EXCESSIVE RAINFALL", "HEAVY RAIN", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("^HURRICANE", "HURRICANE/TYPHOON", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("^TSTM WIND|THUNDERSTORM WINDS|THUNDERSTORMW", "THUNDERSTORM WIND", sd_edited$EVTYPE)
-                # fix sd_edited$EVTYPE <- gsub("SNOW", "HEAVY SNOW", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("RIP CURRENTS", "RIP CURRENT", sd_edited$EVTYPE)
-                # fix sd_edited$EVTYPE <- gsub("HEAVY SURF/HIGH SURF", "HIGH SURF", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("^HIGH WINDS|^WIND$|DRY MICROBLAST|^STRONG WINDS$", "HIGH WIND", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("^ICE$|ICE STORM", "ICE STORM", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("^STORM SURGE", "STORM TIDE", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("WILD/FOREST FIRE|WILD FIRES", "WILDFIRES", sd_edited$EVTYPE)
-                
-                sd_edited$EVTYPE <- gsub("^BLIZZARD|BLIZZARD$", "BLIZZARD", sd_edited$EVTYPE)
-                #HEAVY SNOW
-                #SLEET
-                #WINTRY MIX etc. from below
-                sd_edited$EVTYPE <- gsub("WINTRY MIX|WINTER WEATHER/MIX|SNOW SQUALL|FREEZING RAIN", "WINTER WEATHER", sd_edited$EVTYPE)
-                
-                sd_edited$EVTYPE <- gsub("^FOG$|DENSE FOG", "DENSE FOG", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("GLAZE", "FROST/FREEZE", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("URBAN/SML STREAM FLD", "FLOOD", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("TROPICAL STORM GORDON", "TROPICAL STORM", sd_edited$EVTYPE)
-                sd_edited$EVTYPE <- gsub("WATERSPOUT/TORNADO", "WATERSPOUT", sd_edited$EVTYPE)
-                
-                # select relevant columns to show how event type affects population health
-                        popHealth <- select(sd_edited, EVTYPE, FATALITIES, INJURIES)
-```
-
-## Question 1: Across the United States, which types of events are most harmful with respect to population health?
-
-
-
-
-
-## Question 2: Across the United States, which types of events have the greatest economic consequences?
 
 
 
