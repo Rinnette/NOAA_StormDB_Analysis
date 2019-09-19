@@ -13,12 +13,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 # Synopsis
 
+This report aims to show how severe weather events recorded  during the period 1950 to November 2011 have affected population health and the economy in the United States.  This information is useful so that resources can be prioritised for the different types of events.  Population Health was measured by injuries and fatalities while economic consequences was measured by using cost of damages to property and crops.  It was found that tornadoes, thunderstorm winds, excessive heat, floods and lightning caused the most fatalities and injuries.  Floods, including flash floods, hurricanes/typhoons, hail and thunderstorm winds had the largest economic consequences.
 
 
-# Data Processing
+# Loading and Processing the Raw Data
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database tracks characteristics of major storms and weather events in the United States, including when and where they occur.  
 
 ## Loading the data
-The data was loaded directly from the zipped file and stored in a data table to be manipulated using the *dplyr* package.
+The data was in the form of a comma-separated-value file compressed via the bzip2 algorithm.  It was loaded directly from the zipped file.
 
 ```{r loadData}
         library(dplyr)
@@ -26,33 +28,46 @@ The data was loaded directly from the zipped file and stored in a data table to 
 ```
 
 ## Processing the data
+The number of rows, columns and structure of the dataset were checked, as well as the first and last few rows.
 
-The documentation provided with the data describes 48 different event types. However, there are 985 uniques values in the EVTYPE variable.  
+```{r checkData}
+        dim(stormdata)
+        str(stormdata)
+        head(stormdata)
+        tail(stormdata)
+```
+
+The data seems to have been loaded correctly. 
+
+The documentation provided with the data describes 48 different event types. The number of unique event types in the database was checked.
 
 ```{r numEvents}
         length(unique(stormdata$EVTYPE))
 ```
 
-There seemed to be several variations of each event type due to incorrect spelling, variations of the same name, combinations of names etc.  
+985 uniques values in the EVTYPE column shows a huge variation in how information was entered for this variable.  There seemes to be incorrect spelling, variations of the same name, combinations of several names and so on.  
 
-Some of these erroneous event type names were replaced, but only those that might affect the results of the analysis.  A description of what was done, as well as justification of changes made are provided in the sections below.
+It was decided that some of these event type names should be replaced with what is in the documentation, but only those that might affect the results of the analysis.  A description of what was done, as well as justification of the changes made are provided in the sections below.
 
 
 ### Processing the data to determine how events affect Population Health
-The FATALITIES and INJURIES variables were used to show how the various weather events affect population health.  Since there were so many more event type names in the dataset compared to the document, some checks were done to see how these 'other' names contribute to the numbers of fatalities and injuries.
+The FATALITIES and INJURIES variables were used to show how weather events affect population health.  Since there were so many more event type names in the dataset compared to what was in the documentation provided, some checks were done to see how these 'other' names contribute to the numbers of fatalities and injuries.
 
 
 #### Justification for replacing event names - checking injuries and fatalities
-A vector with the 48 event types described in the documentation was created.  The raw data was then filtered to obtain those rows with event types that are not included in this vector. The proportions of FATALITIES and INJURIES attributed to these event types were then calculated.
+A vector with the 48 event types described in the documentation was created.  The raw data was then filtered to obtain those rows with event types that are NOT included in this vector. The proportions of FATALITIES and INJURIES attributed to these invalid event types were then calculated.
 
 
 ```{r percentInjFat}
-        event_types <- c("ASTRONOMICAL LOW TIDE", "AVALANCHE", "BLIZZARD", "COASTAL FLOOD", "COLD/WIND CHILL", "DEBRIS FLOW", "DENSE FOG", "DENSE SMOKE", "DROUGHT", "DUST DEVIL", "DUST STORM", "EXCESSIVE HEAT", "EXTREME COLD/WIND CHILL", "FLASH FLOOD", "FLOOD", "FREEZING FOG", "FROST/FREEZE", "FUNNEL CLOUD", "HAIL", "HEAT", "HEAVY RAIN", "HEAVY SNOW", "HIGH SURF", "HIGH WIND", "HURRICANE/TYPHOON", "ICE STORM", "LAKESHORE FLOOD", "LAKE-EFFECT SNOW", "LIGHTNING", "MARINE HAIL", "MARINE HIGH WIND", "MARINE STRONG WIND", "MARINE THUNDERSTORM WIND", "RIP CURRENT", "SEICHE", "SLEET", "STORM TIDE", "STRONG WIND", "THUNDERSTORM WIND", "TORNADO", "TROPICAL DEPRESSION", "TROPICAL STORM", "TSUNAMI", "VOLCANIC ASH", "WATERSPOUT", "WILDFIRE", "WINTER STORM", "WINTER WEATHER")
+        # Create vector of valid event types
+                event_types <- c("ASTRONOMICAL LOW TIDE", "AVALANCHE", "BLIZZARD", "COASTAL FLOOD", "COLD/WIND CHILL", "DEBRIS FLOW", "DENSE FOG", "DENSE SMOKE", "DROUGHT", "DUST DEVIL", "DUST STORM", "EXCESSIVE HEAT", "EXTREME COLD/WIND CHILL", "FLASH FLOOD", "FLOOD", "FREEZING FOG", "FROST/FREEZE", "FUNNEL CLOUD", "HAIL", "HEAT", "HEAVY RAIN", "HEAVY SNOW", "HIGH SURF", "HIGH WIND", "HURRICANE/TYPHOON", "ICE STORM", "LAKESHORE FLOOD", "LAKE-EFFECT SNOW", "LIGHTNING", "MARINE HAIL", "MARINE HIGH WIND", "MARINE STRONG WIND", "MARINE THUNDERSTORM WIND", "RIP CURRENT", "SEICHE", "SLEET", "STORM TIDE", "STRONG WIND", "THUNDERSTORM WIND", "TORNADO", "TROPICAL DEPRESSION", "TROPICAL STORM", "TSUNAMI", "VOLCANIC ASH", "WATERSPOUT", "WILDFIRE", "WINTER STORM", "WINTER WEATHER")
 
-        diffEvents <- filter(stormdata, !(EVTYPE %in% event_types))
+        # Filter invalid event types from the data
+                invEvents <- filter(stormdata, !(EVTYPE %in% event_types))
         
-        sum(diffEvents$FATALITIES)/sum(stormdata$FATALITIES)
-        sum(diffEvents$INJURIES)/sum(stormdata$INJURIES)
+        # Calculate how much invalid event types contribute to the total fatalities and injuries
+                sum(invEvents$FATALITIES)/sum(stormdata$FATALITIES)
+                sum(invEvents$INJURIES)/sum(stormdata$INJURIES)
 
 ```
 
@@ -60,19 +75,11 @@ About 13% of fatalities and 9% of injuries can be attributed to events with name
 
 
 #### Description of the selection process for replacing event names
-Note that the top 10 events will be selected for the plots.  With respect to the erroneous names, only the names of those events with numbers of fatalities or injuries greater than 100 were replaced.  Amounts less that 100 should not affect the top ten events.  
-
-The following process was followed:
-* Filter all rows for events which are not in the documentation and where the amount is greater than 0
-* FInd the sum for each event type
-* Filter rows where the sum is greater than 100.
-* Replace event names in these rows if any
-
-The INJURIES variable was checked first.
+The INJURIES variable was summed for each invalid event name.
 
 ```{r checkInjuries}
 
-        # Filter all rows where event name is not in documentation and injuries are not 0
+        # Filter rows with invalid event names and injuries are not 0
                 storm_i <- filter(stormdata, !(EVTYPE %in% event_types) & INJURIES != 0)
 
         # Sum injuries for each event type, and arrange in descending order
@@ -80,18 +87,32 @@ The INJURIES variable was checked first.
                         group_by(EVTYPE) %>%
                         summarise (inj_sum = sum(INJURIES)) %>%
                         arrange(desc(inj_sum))
+
+        # Summary of injuries
+                summary(isum$inj_sum)
+                head(isum, 20)
+   
+```
+
+Sum of injuries for invalid event names which were less than 100 only contribute about 1% of the total injuries which is very small. 
+
+```{r}
+        lessthan100_i <- filter(isum, !(EVTYPE %in% event_types) & inj_sum < 100)
+        sum(lessthan100_i$inj_sum)/sum(sd_edited$INJURIES)
+```
+
+A decision was made to replace those event names with numbers of injuries greater than 100.
+
+```{r selectNamesInj}
         
         # Filter rows where injuries are over 100
-                morethan100_i <- filter(isum, !(EVTYPE %in% event_types) & inj_sum >100)
+                morethan100_i <- filter(isum, !(EVTYPE %in% event_types) & inj_sum > 100)  
                 
         # Select unique event names with injuries over 100
                 unique(morethan100_i$EVTYPE)
-
 ```
 
-There were 14 event names that were selected to be replaced.  
-
-The raw dataset was copied to **sd_edited** and event names were replaced in this copied dataset.     
+The raw dataset was copied to **sd_edited** and event names were replaced in this copied dataset.
 
 ```{r replaceInj}
 
@@ -119,32 +140,31 @@ The raw dataset was copied to **sd_edited** and event names were replaced in thi
 
 ```
 
-Similar code was used to to check the FATALTIES variable.
+A similar check was done for FATALITIES.
 
 ```{r checkFatalities}
 
-        # Filter all rows where event name is not in documentation and injuries are not 0
-                storm_f <- filter(sd_edited, FATALITIES != 0)
+        # Filter rows with invalid event names and fatalities are not 0
+                storm_f <- filter(sd_edited, !(EVTYPE %in% event_types) & FATALITIES != 0)
 
-        # Sum injuries for each event type, and arrange in descending order
+        # Sum fatalities for each event type, and arrange in descending order
                 fsum <- storm_f %>%
                         group_by(EVTYPE) %>%
                         summarise (fat_sum = sum(FATALITIES)) %>%
                         arrange(desc(fat_sum))
-       
-        # Filter rows where fatalities are over 100 
-                morethan100_f <- filter(fsum, !(EVTYPE %in% event_types) & fat_sum >100)
-        
-        # Select unique event names with fatalities over 100
-                unique(morethan100_f$EVTYPE)
+
+        # summary of fatalities
+                summary(fsum$fat_sum)
+                head(fsum, 20)
+                sum(fsum$fat_sum)/sum(sd_edited$INJURIES)
 ```
 
-There were no further event names to be replaced.
+No further event names were replaced as the sum of fatalities for invalid names contribute to less than 1% of the total fatalities.
 
 
 ### Processing the data to show how events affect the economy
 
-The following variables were used to determine how each event affects the economy:
+The following variables were used to determine how events affect the economy:
 
 * PROPDMG - contains figures representing estimates of the damage done to property
 * PROPDMGEXP - an alpha character that signifies the magnitude of the amounts in PROPDMG, ie.
@@ -155,32 +175,38 @@ The following variables were used to determine how each event affects the econom
 * CROPDMG - contains figures representing estimates of the damage done to crops
 * CROPDMGEXP - an alpha character that signifies the magnitude of the amounts in CROPDMG.  The values are the same as for PROPDMGEXP.
 
-Note that going forward the updated **sd_edited** dataset was used for all future processing.
+Note that going forward the updated **sd_edited** dataset was used for all processing.
 
 
 #### Checking PROPDMGEXP and CROPDMGEXP
 PROPDMGEXP and CROPDMGEXP variables were checked to ensure that they contain only H, K, M or B.  
 
-```{r checkExp}
+```{r checkExpValues}
 
         unique(sd_edited$PROPDMGEXP)
         unique(sd_edited$CROPDMGEXP)
 ```
 
-There are a few values which did not seem valid.  Since there is nothing in the documentation to indicate what these characters mean,  for the purposes of this analysis they were ignored.  
+There are a few values which are not valid.  Since there is nothing in the documentation to indicate what these characters mean,  for the purposes of this analysis they were ignored.  
 
+```{r checkExpH}
+        sum(filter(sd_edited, sd_edited$PROPDMGEXP %in% c("B", "b"))$PROPDMG)*1000000000
+        sum(filter(sd_edited, sd_edited$PROPDMGEXP %in% c("H", "h"))$PROPDMG)*100
+```
+
+Total damages where the magnitude is in the hundreds is very low so these figures were ignored.
 
 #### Justification for replacing event names - checking property and crop damage
 
-For both property and crops, events that are not in the documentation were checked to see how much they contribute to total damages.  Note that only the ten events witht he highest amount of damages will be considered.
+For both property and crops, invalid events were checked to see how much they contribute to total damages.  
 
 The data required was separated into 2 datasets: **prop** and **crop**.
 
-The following process was used:
+The following was done to the data:
 
 * Select only the columns that will be used in the analysis: EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP.
 
-* Valid rows, ie. those where the damage magnitude is B, M or K, were filtered separately into **prop** and **crop**.  Hundreds (where PROPDMGEXP and CROPDMGEXP were 'H') were excluded as those values were too small to have an effect on the top ten events to be selected for the plot.
+* Rows where the damage magnitude is B, M or K, were filtered.  
 
 * The damage magnitude characters were substituted with corresponding numerical values:
 + B or b was replaced with 1 000 000 000
@@ -191,7 +217,7 @@ The following process was used:
 
 * Filter those rows with events which are not in the documentation.
 
-* Sum the damages and find the proporation of the total damages for each dataset.
+* Find the proportion of the total damages from invalid event names.
 
 ```{r percentDamages}
 
@@ -217,70 +243,86 @@ The following process was used:
                 prop <- mutate(prop, propDamages = PROPDMG * PROPDMGEXP)
                 crop <- mutate(crop, cropDamages = CROPDMG * CROPDMGEXP)
 
-        # Filter rows for events not in the documentation
-                diffEventsProp <- filter(prop, !(EVTYPE %in% event_types))
-                diffEventsCrop <- filter(crop, !(EVTYPE %in% event_types))
+        # Filter rows with invalid events
+                invEventsProp <- filter(prop, !(EVTYPE %in% event_types))
+                invEventsCrop <- filter(crop, !(EVTYPE %in% event_types))
         
-        # FInd proportion of total contribution
-                sum(diffEventsProp$propDamages)/sum(prop$propDamages)
-                sum(diffEventsCrop$cropDamages)/sum(crop$cropDamages)
+        # Find proportion of total contribution from invalid events
+                sum(invEventsProp$propDamages)/sum(prop$propDamages)
+                sum(invEventsCrop$cropDamages)/sum(crop$cropDamages)
 ```
 
-About 18% of property damage and 20% of crop damage can be attributed to events with names not in the documentation.  These amounts are large enough to justify replacing some of these names with the documented names.  
+About 18% of property damage and 20% of crop damage can be attributed to invalid events types.  These amounts are large enough to justify replacing some of these names with the documented names.  
 
 
 #### Description of the selection process for replacing event names
-Again only the top 10 events were selected for the plot.  With respect to the event names not included in the documentation, only those where the sum of the damages is greater that 100 million were replaced.  Total damages less than this amount will not affect the top ten events as those amounts are very large.
 
-**prop** was processed first.
+Invalid events in property damage was checked first.
+
+```{r checkInvalidProp}
+
+        # Group by event type and order
+                invPropOrdered <- invEventsProp %>%
+                        group_by(EVTYPE) %>%
+                        summarise (invp_sum = sum(propDamages)) %>%
+                        arrange(desc(invp_sum))
+
+        # Checking threshold to use for which events to replace
+                lessthan10B_p <- filter(invPropOrdered, invp_sum < 1e+10)
+                sum(lessthan10B_p$invp_sum)/sum(prop$propDamages)
+                
+```
+
+Sum of damages for invalid events which were less than 10 billion contributed about 5% to total property damage.  So it was decided that names would be replaced for those events where property damage was over 10 billion.  
 
 ```{r replaceProp}
-
-        # Filter events not in documentation and greater than 100 million
-                propOrdered <- prop %>%
-                        group_by(EVTYPE) %>%
-                        summarise (p_sum = sum(propDamages)) %>%
-                        arrange(desc(p_sum))
-                
-                morethan100M_p <- filter(propOrdered, !(EVTYPE %in% event_types) & p_sum >1e+8)
+                morethan10B_p <- filter(invPropOrdered, invp_sum > 1e+10)
         
-                unique(morethan100M_p$EVTYPE)
+                unique(morethan10B_p$EVTYPE)
 
         # Replace event names
                 prop$EVTYPE <- gsub("^HURRICANE .*|^HURRICANE$|^TYPHOON$", "HURRICANE/TYPHOON", 
                                     prop$EVTYPE)
-                prop$EVTYPE <- gsub("^LANDSLIDE$", "DEBRIS FLOW", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^COASTAL FLOODING$", "COASTAL FLOOD", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^LANDSLIDE$", "DEBRIS FLOW", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^COASTAL FLOODING$", "COASTAL FLOOD", prop$EVTYPE)
                 prop$EVTYPE <- gsub("^STORM SURGE.*", "STORM TIDE", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^FLASH FLOOD/.*|FLASH FLOODING", "FLASH FLOOD", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^RIVER FLOOD.*|^FLOOD.*|^MAJOR FLOOD$", "FLOOD", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^SEVERE THUNDERSTORM$|HEAVY RAIN.*", "HEAVY RAIN", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^TORNADOES.*", "TORNADO", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^HAILSTORM$", "HAIL", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^WILDFIRES$", "WILDFIRE", prop$EVTYPE)
-                prop$EVTYPE <- gsub("^HIGH WINDS.*", "HIGH WIND", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^FLASH FLOOD/.*|FLASH FLOODING", "FLASH FLOOD", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^RIVER FLOOD.*|^FLOOD.*|^MAJOR FLOOD$", "FLOOD", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^SEVERE THUNDERSTORM$|HEAVY RAIN.*", "HEAVY RAIN", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^TORNADOES.*", "TORNADO", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^HAILSTORM$", "HAIL", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^WILDFIRES$", "WILDFIRE", prop$EVTYPE)
+                #prop$EVTYPE <- gsub("^HIGH WINDS.*", "HIGH WIND", prop$EVTYPE)
 
 ```
 
-A similar exercise was done with **crop**.
+A similar exercise was done on invalid events for crop damages.
+
+```{r checkInvalidCrop}
+
+       # Group by event type and order
+                invCropOrdered <- invEventsCrop %>%
+                        group_by(EVTYPE) %>%
+                        summarise (invc_sum = sum(cropDamages)) %>%
+                        arrange(desc(invc_sum))
+
+        # Checking threshold to use for which events to replace
+                lessthan1B_c <- filter(invCropOrdered, invc_sum < 1e+9)
+                sum(lessthan1B_c$invc_sum)/sum(crop$cropDamages)
+```
+
+Sum of damages for invalid events which were less than 1 billion contributed about 4% to total property damage.  So it was decided that names would be replaced for those events where property damage was over 1 billion.
 
 ```{r replaceCrop}
-
-       # Filter events not in documentation and greater than 100 million        
-                cropOrdered <- crop %>%
-                        group_by(EVTYPE) %>%
-                        summarise (c_sum = sum(cropDamages)) %>%
-                        arrange(desc(c_sum))
-                
-                morethan100M_c <- filter(cropOrdered, !(EVTYPE %in% event_types) & c_sum >1e+8)
+                morethan1B_c <- filter(invCropOrdered, invc_sum >1e+9)
         
-                unique(morethan100M_c$EVTYPE)
+                unique(morethan1B_c$EVTYPE)
 
         # Replace event names
                 crop$EVTYPE <- gsub("^HURRICANE .*|^HURRICANE$", "HURRICANE/TYPHOON", crop$EVTYPE)
                 crop$EVTYPE <- gsub("^RIVER FLOOD.*|FLOOD/RAIN.*", "FLOOD", crop$EVTYPE)
-                crop$EVTYPE <- gsub("^FREEZE$|.*FREEZE$", "FLOOD/FREEZE", crop$EVTYPE)
-                crop$EVTYPE <- gsub("^EXCESSIVE WETNESS$", "HEAVY RAIN", crop$EVTYPE)
+                #crop$EVTYPE <- gsub("^FREEZE$|.*FREEZE$", "FLOOD/FREEZE", crop$EVTYPE)
+                #crop$EVTYPE <- gsub("^EXCESSIVE WETNESS$", "HEAVY RAIN", crop$EVTYPE)
                 
 ```
 
@@ -288,18 +330,25 @@ A similar exercise was done with **crop**.
 # Results
 ## Question 1: Across the United States, which types of events are most harmful with respect to population health?
 
-The edited database, **sd_edited**, was used to create a plot showing the events harmful to the population.  As mentioned previously, the FATALITIES and INJURIES variables were used to show this.
+The edited database, **sd_edited**, was used to create a plot showing the events harmful to the population ie., fatalities and injuries.
 
 First, the injuries were plotted against event type in a barchart.
 
-```{r plotInjuries}
+```{r checkInjSum}
 
         # Group by Event type, sum injuries for each event and arrange in descending order
                 inj_ordered <- sd_edited %>%
                         group_by(EVTYPE) %>%
                         summarise (inj_sum = sum(INJURIES)) %>%
                         arrange(desc(inj_sum))
-        
+
+                summary(inj_ordered$inj_sum)
+```
+
+justify using top 10 here.
+
+
+```{r plotInj}
         # Take the top 10 events
                 inj_plotdata <- head(inj_ordered, 10)
         
