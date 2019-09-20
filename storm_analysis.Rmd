@@ -1,7 +1,7 @@
 ---
-title: "Analysis of NOAA storm data to determine effects of weather events on population health & the economy"
+title: "Effects of weather events on population health & the economy between 1950 and 2011"
 author: "Rinnette Ramdhanie"
-date: "4 September 2019"
+date: "19 September 2019"
 output: 
         html_document: 
                 keep_md: true
@@ -75,6 +75,8 @@ About 13% of fatalities and 9% of injuries can be attributed to events with name
 
 
 #### Description of the selection process for replacing event names
+It may not be necessary to replace every invalid event type.  Aome analysis was done to determine which ones should be replaced.  
+
 The INJURIES variable was summed for each invalid event name.
 
 ```{r checkInjuries}
@@ -94,21 +96,21 @@ The INJURIES variable was summed for each invalid event name.
    
 ```
 
-Sum of injuries for invalid event names which were less than 100 only contribute about 1% of the total injuries which is very small. 
+Sum of injuries for invalid event names which were less than 100 only contribute to about 1% of the total injuries which is very small. 
 
 ```{r}
         lessthan100_i <- filter(isum, !(EVTYPE %in% event_types) & inj_sum < 100)
-        sum(lessthan100_i$inj_sum)/sum(sd_edited$INJURIES)
+        sum(lessthan100_i$inj_sum)/sum(stormdata$INJURIES)
 ```
 
-A decision was made to replace those event names with numbers of injuries greater than 100.
+A decision was therefore made to replace those event names with numbers of injuries greater than 100.
 
 ```{r selectNamesInj}
         
         # Filter rows where injuries are over 100
                 morethan100_i <- filter(isum, !(EVTYPE %in% event_types) & inj_sum > 100)  
                 
-        # Select unique event names with injuries over 100
+        # Select unique event names with over 100 injuries
                 unique(morethan100_i$EVTYPE)
 ```
 
@@ -153,9 +155,8 @@ A similar check was done for FATALITIES.
                         summarise (fat_sum = sum(FATALITIES)) %>%
                         arrange(desc(fat_sum))
 
-        # summary of fatalities
-                summary(fsum$fat_sum)
-                head(fsum, 20)
+        # Calculate contribution to total fatalities
+                head(fsum)
                 sum(fsum$fat_sum)/sum(sd_edited$INJURIES)
 ```
 
@@ -189,12 +190,16 @@ PROPDMGEXP and CROPDMGEXP variables were checked to ensure that they contain onl
 
 There are a few values which are not valid.  Since there is nothing in the documentation to indicate what these characters mean,  for the purposes of this analysis they were ignored.  
 
+Total damages for the billions magnitude were summed to get an idea of the figures.
 ```{r checkExpH}
-        sum(filter(sd_edited, sd_edited$PROPDMGEXP %in% c("B", "b"))$PROPDMG)*1000000000
-        sum(filter(sd_edited, sd_edited$PROPDMGEXP %in% c("H", "h"))$PROPDMG)*100
+        # Check billions
+                sum(filter(sd_edited, sd_edited$PROPDMGEXP %in% c("B", "b"))$PROPDMG)*1000000000
+
+        # Check hundreds        
+                sum(filter(sd_edited, sd_edited$PROPDMGEXP %in% c("H", "h"))$PROPDMG)*100
 ```
 
-Total damages where the magnitude is in the hundreds is very low so these figures were ignored.
+Total damages where the magnitude is in the hundreds is very low compared to the total damages so these figures were ignored.
 
 #### Justification for replacing event names - checking property and crop damage
 
@@ -209,9 +214,9 @@ The following was done to the data:
 * Rows where the damage magnitude is B, M or K, were filtered.  
 
 * The damage magnitude characters were substituted with corresponding numerical values:
-+ B or b was replaced with 1 000 000 000
-+ M or m was replaced with 1 000 000
-+ K or k was replaced with 1 000
+        + B or b was replaced with 1 000 000 000
+        + M or m was replaced with 1 000 000
+        + K or k was replaced with 1 000
 
 * Damages were calculated and added to a new column in each dataset.
 
@@ -277,7 +282,6 @@ Sum of damages for invalid events which were less than 10 billion contributed ab
 
 ```{r replaceProp}
                 morethan10B_p <- filter(invPropOrdered, invp_sum > 1e+10)
-        
                 unique(morethan10B_p$EVTYPE)
 
         # Replace event names
@@ -296,7 +300,7 @@ Sum of damages for invalid events which were less than 10 billion contributed ab
 
 ```
 
-A similar exercise was done on invalid events for crop damages.
+A similar exercise was done on invalid event names for crop damages.
 
 ```{r checkInvalidCrop}
 
@@ -311,11 +315,10 @@ A similar exercise was done on invalid events for crop damages.
                 sum(lessthan1B_c$invc_sum)/sum(crop$cropDamages)
 ```
 
-Sum of damages for invalid events which were less than 1 billion contributed about 4% to total property damage.  So it was decided that names would be replaced for those events where property damage was over 1 billion.
+Sum of damages for invalid events which were less than 1 billion contributed about 4% to total property damage.  So it was decided that names would be replaced for only those invalid events where property damage was over 1 billion.
 
 ```{r replaceCrop}
                 morethan1B_c <- filter(invCropOrdered, invc_sum >1e+9)
-        
                 unique(morethan1B_c$EVTYPE)
 
         # Replace event names
@@ -328,7 +331,7 @@ Sum of damages for invalid events which were less than 1 billion contributed abo
 
 
 # Results
-## Question 1: Across the United States, which types of events are most harmful with respect to population health?
+## Weather events most harmful to population health
 
 The edited database, **sd_edited**, was used to create a plot showing the events harmful to the population ie., fatalities and injuries.
 
@@ -342,11 +345,10 @@ First, the injuries were plotted against event type in a barchart.
                         summarise (inj_sum = sum(INJURIES)) %>%
                         arrange(desc(inj_sum))
 
-                summary(inj_ordered$inj_sum)
+                head(inj_ordered, 20)
 ```
 
-justify using top 10 here.
-
+The top ten events were sufficient to resonably illustrate the relationship between weather events and injuries.
 
 ```{r plotInj}
         # Take the top 10 events
@@ -359,14 +361,12 @@ justify using top 10 here.
                 library(ggplot2)
                 injPlot <- ggplot(inj_plotdata, aes(EVTYPE, inj_sum)) +
                         geom_bar(stat = "identity", fill = "#3296FF") +
-                        scale_y_continuous(name = "No. of Fatalities", breaks=seq(0, 1e+5, 1e+4)) +
+                        scale_y_continuous(name = "No. of Injuries", breaks=seq(0, 1e+5, 1e+4)) +
                         xlab("Type of Weather Event") +
-                        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
-                        ylab("Number of Injuries") +
-                        ggtitle("")
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
 
-Fatalities were then plotted against event type.
+Fatalities were then plotted against event type.  Again the top ten events were used to illustrate the relationship between weather events and fatalities.
 
 ```{r plotFatalities}
 
@@ -387,9 +387,7 @@ Fatalities were then plotted against event type.
                         geom_bar(stat = "identity", fill = "#0080C0") +
                         scale_y_continuous(name = "No. of Fatalities", breaks=seq(0, 10000, 1000)) +
                         xlab("Type of Weather Event") +
-                        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
-                        #ylab("Number of Fatalities") +
-                        ggtitle("")
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
 
 Both charts are displayed in one panel.
@@ -397,20 +395,24 @@ Both charts are displayed in one panel.
 ```{r dispInjFat}
 
         library(ggpubr)
-        ggarrange(injPlot, fatPlot, align = "h")
+        panelInjFat <- ggarrange(injPlot, fatPlot, align = "h")
+        annotate_figure(panelInjFat,
+                        top = text_grob("Events most harmful to population health", 
+                                        color = "navy blue", face = "bold", size = 12),
+                        fig.lab = "Figure 1", fig.lab.face = "bold")
 
 ```
 
-The barcharts show that tornodoes, thunderstorm winds and excessive heat are the top 3 causes of injuries, while tornadoes, excessive heat and flash fllod and the top 3 causes of fatalities.  
+The barcharts show that tornodoes, thunderstorm winds and excessive heat are the top 3 causes of injuries, while tornadoes, excessive heat and flash flood are the top 3 causes of fatalities.  
 
-Tornadoes, thunderstorm winds, excessive heat, floods, lightning, ?heat? and high winds are the major causes of fatalities.
-
-
+Tornadoes, thunderstorm winds, excessive heat, floods, lightning, heat and high wind are the major causes of injuries and fatalities.
 
 
-## Question 2: Across the United States, which types of events have the greatest economic consequences?
 
-First, property damage was plotted against event type in a barchart.
+
+## Weather events that have the greatest economic consequences
+
+Property damage was plotted against event type using a barchart.  Again the top ten events were sufficient to illustrate the weather events that caused the greatest damage.
 
 ```{r plotPropDamage}
 
@@ -432,10 +434,7 @@ First, property damage was plotted against event type in a barchart.
                         scale_y_continuous(name = "Amount of Property Damage", 
                                            breaks=seq(0, 1.5e+11, 1e+10)) +
                         xlab("Type of Weather Event") +
-                        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
-                        #ylab("Number of Fatalities") +
-                        ggtitle("")
-
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
 
 Crop Damage was then plotted against event type.
@@ -460,22 +459,21 @@ Crop Damage was then plotted against event type.
                         scale_y_continuous(name = "Amount of Crop Damage", 
                                            breaks=seq(0, 1.4e+10, 1e+9)) +
                         xlab("Type of Weather Event") +
-                        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
-                        #ylab("Number of Fatalities") +
-                        ggtitle("")
-
-
+                        theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
 
 Both plots are displayed in one panel.
 
 ```{r displayPropCrop}
         library(ggpubr)
-        ggarrange(propPlot, cropPlot, align = "h")
-
+        panelDamage <- ggarrange(propPlot, cropPlot, align = "h")
+        annotate_figure(panelDamage,
+                        top = text_grob("Events with greatest economic consequences", 
+                                        color = "navy blue", face = "bold", size = 12),
+                        fig.lab = "Figure 2", fig.lab.face = "bold")
 ```
 
-The barcharts show that while flood, hurricanes/typhoons and tornadoes are the top 3 causes of property damage, drought, flood and hurricanes/typhoons are the top 3 causes of damage to crops
+The barcharts show that while flood, hurricanes/typhoons and tornadoes are the top 3 causes of property damage, drought, flood and hurricanes/typhoons are the top 3 causes of damage to crops.
 
-Floods, flash floods, hurricanes/typhoons, hail and thunderstorm winds cause substantial damage to both property and crops.
+Floods, flash floods, hurricanes/typhoons, hail and thunderstorm wind cause substantial damage to both property and crops.
 
